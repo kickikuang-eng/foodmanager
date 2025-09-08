@@ -1,0 +1,3 @@
+# foodmanager
+
+Initial setup.
