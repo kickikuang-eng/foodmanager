@@ -1,6 +1,8 @@
+import { SupabaseTest } from '@/components/supabase-test'
+
 export default function Home() {
   return (
-    <main className="min-h-screen bg-gradient-to-br from-primary-50 to-secondary-50">
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-50">
       <div className="container mx-auto px-4 py-16">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
@@ -14,15 +16,20 @@ export default function Home() {
             <p className="text-gray-600 mb-6">
               A comprehensive food management system featuring:
             </p>
-            <ul className="text-left space-y-2 text-gray-600">
+            <ul className="text-left space-y-2 text-gray-600 mb-6">
               <li>• Recipe scraping from YouTube, Instagram, and TikTok</li>
               <li>• Smart inventory tracking and expiry alerts</li>
               <li>• Meal planning and shopping list generation</li>
               <li>• Receipt scanning with OCR</li>
               <li>• Nutrition tracking and analysis</li>
             </ul>
+            
+            <div className="mb-6">
+              <SupabaseTest />
+            </div>
+            
             <div className="mt-8">
-              <button className="bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 transition-colors">
+              <button className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors">
                 Get Started
               </button>
             </div>
