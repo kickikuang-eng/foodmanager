@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { detectPlatform, isValidUrl } from '@/lib/platform'
 import { supabaseAdmin } from '@/lib/supabase'
+import { startApifyActor } from '@/lib/apify'
 
 export async function POST(request: Request) {
   try {
@@ -26,7 +27,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ jobId: data.id })
+    const jobId = data.id
+
+    const apifyRun = await startApifyActor({ url, platform: detected })
+    if (apifyRun?.runId) {
+      await supabaseAdmin
+        .from('scraping_jobs')
+        .update({ status: 'processing', result: { apifyRunId: apifyRun.runId } })
+        .eq('id', jobId)
+    }
+
+    return NextResponse.json({ jobId })
   } catch (e) {
     return NextResponse.json({ error: 'Bad request' }, { status: 400 })
   }
