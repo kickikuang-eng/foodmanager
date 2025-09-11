@@ -24,12 +24,22 @@ export default function ScrapePage() {
     supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null))
   }, [])
 
+  async function parseJsonSafe(res: Response) {
+    try {
+      return await res.json()
+    } catch {
+      const text = await res.text()
+      return { error: text }
+    }
+  }
+
   async function loadJobs(id: string) {
     setLoading(true)
     try {
-      const res = await fetch(`/api/scrape?userId=${id}`)
-      const data = await res.json()
+      const res = await fetch(`/api/scrape?userId=${encodeURIComponent(id)}`)
+      const data = await parseJsonSafe(res)
       if (res.ok) setJobs((data.jobs as Job[]) || [])
+      else setError(typeof data.error === 'string' ? data.error : 'Failed to load jobs')
     } finally {
       setLoading(false)
     }
@@ -62,15 +72,25 @@ export default function ScrapePage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url, platform, userId }),
     })
-    const data = await res.json()
+    const data = await parseJsonSafe(res)
     if (!res.ok) {
-      setError(data.error || 'Failed to create job')
+      setError(typeof data.error === 'string' ? data.error : 'Failed to create job')
       setStatus(null)
       return
     }
     setStatus(`Job created: ${data.jobId}`)
     setUrl('')
     await loadJobs(userId)
+  }
+
+  async function checkStatus(jobId: string) {
+    const res = await fetch(`/api/scrape/status?jobId=${encodeURIComponent(jobId)}`)
+    const data = await parseJsonSafe(res)
+    if (!res.ok) {
+      setError(typeof data.error === 'string' ? data.error : 'Failed to check status')
+      return
+    }
+    if (userId) await loadJobs(userId)
   }
 
   return (
@@ -86,7 +106,7 @@ export default function ScrapePage() {
         <button className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">Add</button>
       </form>
       {status && <p className="text-sm text-gray-600 mt-3">{status}</p>}
-      {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
+      {error && <p className="text-sm text-red-600 mt-3 whitespace-pre-wrap">{error}</p>}
 
       <div className="flex items-center justify-between mt-8">
         <h2 className="text-lg font-semibold">Recent jobs</h2>
@@ -97,12 +117,15 @@ export default function ScrapePage() {
       <div className="divide-y border rounded mt-2">
         {jobs.length === 0 && <div className="p-3 text-sm text-gray-500">No jobs yet.</div>}
         {jobs.map(j => (
-          <div key={j.id} className="p-3 text-sm flex items-center justify-between">
-            <div>
+          <div key={j.id} className="p-3 text-sm flex items-center justify-between gap-3">
+            <div className="min-w-0">
               <div className="font-medium">{j.platform}</div>
               <div className="text-gray-600 truncate max-w-md">{j.url}</div>
             </div>
-            <div className="px-2 py-1 rounded bg-gray-100">{j.status}</div>
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-1 rounded bg-gray-100">{j.status}</span>
+              <button onClick={() => checkStatus(j.id)} className="px-2 py-1 rounded border hover:bg-gray-50">Check</button>
+            </div>
           </div>
         ))}
       </div>

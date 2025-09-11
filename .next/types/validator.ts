@@ -83,6 +83,12 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   handler satisfies RouteHandlerConfig<"/api/scrape">
 }
 
+// Validate ../../src/app/api/scrape/status/route.ts
+{
+  const handler = {} as typeof import("../../src/app/api/scrape/status/route.js")
+  handler satisfies RouteHandlerConfig<"/api/scrape/status">
+}
+
 
 
 
