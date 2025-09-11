@@ -18,20 +18,25 @@ export default function ScrapePage() {
   const [error, setError] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [jobs, setJobs] = useState<Job[]>([])
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null))
   }, [])
 
+  async function loadJobs(id: string) {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/scrape?userId=${id}`)
+      const data = await res.json()
+      if (res.ok) setJobs((data.jobs as Job[]) || [])
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
-    if (!userId) return
-    ;(async () => {
-      const { data, error } = await supabase
-        .from('scraping_jobs')
-        .select('id,url,platform,status,created_at')
-        .order('created_at', { ascending: false })
-      if (!error && data) setJobs(data as Job[])
-    })()
+    if (userId) loadJobs(userId)
   }, [userId])
 
   async function submit(e: React.FormEvent) {
@@ -65,12 +70,7 @@ export default function ScrapePage() {
     }
     setStatus(`Job created: ${data.jobId}`)
     setUrl('')
-    // refresh list
-    const { data: list } = await supabase
-      .from('scraping_jobs')
-      .select('id,url,platform,status,created_at')
-      .order('created_at', { ascending: false })
-    setJobs((list as Job[]) || [])
+    await loadJobs(userId)
   }
 
   return (
@@ -88,8 +88,13 @@ export default function ScrapePage() {
       {status && <p className="text-sm text-gray-600 mt-3">{status}</p>}
       {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
 
-      <h2 className="text-lg font-semibold mt-8 mb-2">Recent jobs</h2>
-      <div className="divide-y border rounded">
+      <div className="flex items-center justify-between mt-8">
+        <h2 className="text-lg font-semibold">Recent jobs</h2>
+        <button disabled={!userId || loading} onClick={() => userId && loadJobs(userId)} className="px-3 py-1.5 rounded border hover:bg-gray-50 text-sm">
+          {loading ? 'Refreshing...' : 'Refresh'}
+        </button>
+      </div>
+      <div className="divide-y border rounded mt-2">
         {jobs.length === 0 && <div className="p-3 text-sm text-gray-500">No jobs yet.</div>}
         {jobs.map(j => (
           <div key={j.id} className="p-3 text-sm flex items-center justify-between">

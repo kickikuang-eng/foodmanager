@@ -3,6 +3,19 @@ import { detectPlatform, isValidUrl } from '@/lib/platform'
 import { supabaseAdmin } from '@/lib/supabase'
 import { startApifyActor } from '@/lib/apify'
 
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url)
+  const userId = searchParams.get('userId')
+  if (!userId) return NextResponse.json({ error: 'Missing user id' }, { status: 400 })
+  const { data, error } = await supabaseAdmin
+    .from('scraping_jobs')
+    .select('id,url,platform,status,created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ jobs: data })
+}
+
 export async function POST(request: Request) {
   try {
     const { url, platform, userId } = await request.json()
