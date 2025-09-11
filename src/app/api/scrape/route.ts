@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
 import { detectPlatform, isValidUrl } from '@/lib/platform'
+import { supabaseAdmin } from '@/lib/supabase'
 
 export async function POST(request: Request) {
   try {
-    const { url, platform } = await request.json()
+    const { url, platform, userId } = await request.json()
     if (!url || !isValidUrl(url)) {
       return NextResponse.json({ error: 'Invalid URL' }, { status: 400 })
     }
@@ -11,12 +12,21 @@ export async function POST(request: Request) {
     if (!detected || (platform && platform !== detected)) {
       return NextResponse.json({ error: 'Unsupported platform' }, { status: 400 })
     }
+    if (!userId) {
+      return NextResponse.json({ error: 'Missing user id' }, { status: 400 })
+    }
 
-    // TODO: Insert a scraping job into Supabase and trigger Apify actor
-    // Placeholder: return a fake job id
-    const jobId = `job_${Math.random().toString(36).slice(2, 10)}`
+    const { data, error } = await supabaseAdmin
+      .from('scraping_jobs')
+      .insert({ url, platform: detected, user_id: userId, status: 'pending' })
+      .select('id')
+      .single()
 
-    return NextResponse.json({ jobId })
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ jobId: data.id })
   } catch (e) {
     return NextResponse.json({ error: 'Bad request' }, { status: 400 })
   }

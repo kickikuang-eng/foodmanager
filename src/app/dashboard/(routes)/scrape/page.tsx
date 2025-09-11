@@ -1,12 +1,38 @@
 "use client"
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
 import { detectPlatform, isValidUrl } from '@/lib/platform'
+
+interface Job {
+  id: string
+  url: string
+  platform: string
+  status: string
+  created_at: string
+}
 
 export default function ScrapePage() {
   const [url, setUrl] = useState('')
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [jobs, setJobs] = useState<Job[]>([])
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null))
+  }, [])
+
+  useEffect(() => {
+    if (!userId) return
+    ;(async () => {
+      const { data, error } = await supabase
+        .from('scraping_jobs')
+        .select('id,url,platform,status,created_at')
+        .order('created_at', { ascending: false })
+      if (!error && data) setJobs(data as Job[])
+    })()
+  }, [userId])
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -21,11 +47,15 @@ export default function ScrapePage() {
       setError('URL must be from YouTube, Instagram, or TikTok')
       return
     }
+    if (!userId) {
+      setError('You must be signed in')
+      return
+    }
     setStatus('Creating job...')
     const res = await fetch('/api/scrape', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, platform }),
+      body: JSON.stringify({ url, platform, userId }),
     })
     const data = await res.json()
     if (!res.ok) {
@@ -35,10 +65,16 @@ export default function ScrapePage() {
     }
     setStatus(`Job created: ${data.jobId}`)
     setUrl('')
+    // refresh list
+    const { data: list } = await supabase
+      .from('scraping_jobs')
+      .select('id,url,platform,status,created_at')
+      .order('created_at', { ascending: false })
+    setJobs((list as Job[]) || [])
   }
 
   return (
-    <div className="max-w-xl">
+    <div className="max-w-2xl">
       <h1 className="text-xl font-semibold mb-4">Add recipe by URL</h1>
       <form onSubmit={submit} className="flex gap-2">
         <input
@@ -51,6 +87,20 @@ export default function ScrapePage() {
       </form>
       {status && <p className="text-sm text-gray-600 mt-3">{status}</p>}
       {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
+
+      <h2 className="text-lg font-semibold mt-8 mb-2">Recent jobs</h2>
+      <div className="divide-y border rounded">
+        {jobs.length === 0 && <div className="p-3 text-sm text-gray-500">No jobs yet.</div>}
+        {jobs.map(j => (
+          <div key={j.id} className="p-3 text-sm flex items-center justify-between">
+            <div>
+              <div className="font-medium">{j.platform}</div>
+              <div className="text-gray-600 truncate max-w-md">{j.url}</div>
+            </div>
+            <div className="px-2 py-1 rounded bg-gray-100">{j.status}</div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
