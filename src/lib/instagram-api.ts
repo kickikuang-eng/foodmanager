@@ -5,15 +5,17 @@ export async function scrapeWithApify(url: string): Promise<{ caption?: string; 
   if (!apiToken) throw new Error("APIFY_API_TOKEN is not set");
 
   const actorId = process.env.APIFY_ACTOR_ID_INSTAGRAM || "apify~instagram-scraper";
+  const actorPath = actorId.includes('~') ? actorId.replace('~', '/') : actorId;
   const payload = {
     postUrls: [url],
     includeComments: true,
     includeLikes: true,
-    includeHashtags: true
+    includeHashtags: true,
+    directUrls: [url]
   } as Record<string, unknown>;
 
   // Start the actor run
-  const actorRunResponse = await fetch(`https://api.apify.com/v2/acts/${actorId}/runs`, {
+  const actorRunResponse = await fetch(`https://api.apify.com/v2/acts/${actorPath}/runs`, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${apiToken}`,
