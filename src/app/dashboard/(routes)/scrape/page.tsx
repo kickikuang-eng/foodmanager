@@ -10,6 +10,8 @@ interface Job {
   platform: string
   status: string
   created_at: string
+  result?: any
+  error_message?: string
 }
 
 export default function ScrapePage() {
@@ -19,6 +21,7 @@ export default function ScrapePage() {
   const [userId, setUserId] = useState<string | null>(null)
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(false)
+  const [autoRefresh, setAutoRefresh] = useState(false)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null))
@@ -48,6 +51,22 @@ export default function ScrapePage() {
   useEffect(() => {
     if (userId) loadJobs(userId)
   }, [userId])
+
+  // Auto-refresh processing jobs
+  useEffect(() => {
+    if (!autoRefresh || !userId) return
+    
+    const interval = setInterval(() => {
+      const processingJobs = jobs.filter(job => job.status === 'processing')
+      if (processingJobs.length > 0) {
+        loadJobs(userId)
+      } else {
+        setAutoRefresh(false)
+      }
+    }, 5000) // Check every 5 seconds
+    
+    return () => clearInterval(interval)
+  }, [autoRefresh, userId, jobs])
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -81,15 +100,27 @@ export default function ScrapePage() {
     setStatus(`Job created: ${data.jobId}`)
     setUrl('')
     await loadJobs(userId)
+    setAutoRefresh(true) // Start auto-refresh for the new job
   }
 
   async function checkStatus(jobId: string) {
+    setError(null)
     const res = await fetch(`/api/scrape/status?jobId=${encodeURIComponent(jobId)}`)
     const data = await parseJsonSafe(res)
     if (!res.ok) {
       setError(typeof data.error === 'string' ? data.error : 'Failed to check status')
       return
     }
+    
+    // Show success message if job completed
+    if (data.status === 'completed') {
+      setStatus(`Recipe successfully scraped and saved! ${data.message || ''}`)
+    } else if (data.status === 'failed') {
+      setError(data.message || 'Scraping job failed')
+    } else {
+      setStatus(data.message || 'Job is still processing...')
+    }
+    
     if (userId) await loadJobs(userId)
   }
 
@@ -117,15 +148,44 @@ export default function ScrapePage() {
       <div className="divide-y border rounded mt-2">
         {jobs.length === 0 && <div className="p-3 text-sm text-gray-500">No jobs yet.</div>}
         {jobs.map(j => (
-          <div key={j.id} className="p-3 text-sm flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="font-medium">{j.platform}</div>
-              <div className="text-gray-600 truncate max-w-md">{j.url}</div>
+          <div key={j.id} className="p-3 text-sm">
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <div className="min-w-0 flex-1">
+                <div className="font-medium capitalize">{j.platform}</div>
+                <div className="text-gray-600 truncate max-w-md">{j.url}</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {new Date(j.created_at).toLocaleString()}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                  j.status === 'completed' ? 'bg-green-100 text-green-800' :
+                  j.status === 'failed' ? 'bg-red-100 text-red-800' :
+                  j.status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                  'bg-gray-100 text-gray-800'
+                }`}>
+                  {j.status}
+                </span>
+                {j.status === 'processing' && (
+                  <button 
+                    onClick={() => checkStatus(j.id)} 
+                    className="px-2 py-1 rounded border hover:bg-gray-50 text-xs"
+                  >
+                    Check
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="px-2 py-1 rounded bg-gray-100">{j.status}</span>
-              <button onClick={() => checkStatus(j.id)} className="px-2 py-1 rounded border hover:bg-gray-50">Check</button>
-            </div>
+            {j.error_message && (
+              <div className="text-xs text-red-600 bg-red-50 p-2 rounded mt-2">
+                Error: {j.error_message}
+              </div>
+            )}
+            {j.status === 'completed' && j.result?.recipeId && (
+              <div className="text-xs text-green-600 bg-green-50 p-2 rounded mt-2">
+                ✓ Recipe saved successfully
+              </div>
+            )}
           </div>
         ))}
       </div>

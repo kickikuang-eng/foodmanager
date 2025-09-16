@@ -2,13 +2,13 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { Providers } from '@/components/providers'
-import NavBar from '@/components/NavBar'
+import ConditionalNavBar from '@/components/ConditionalNavBar'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Food Manager - Smart Recipe & Inventory Management',
-  description: 'A comprehensive food management system with recipe scraping, inventory tracking, and meal planning.',
+  title: 'Kickis Food - Recipe Manager',
+  description: 'Generate recipes from YouTube, Instagram, and TikTok videos. Smart recipe management made simple.',
 }
 
 export default function RootLayout({
@@ -19,7 +19,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <NavBar />
+        <ConditionalNavBar />
         <Providers>{children}</Providers>
       </body>
     </html>

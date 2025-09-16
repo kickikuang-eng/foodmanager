@@ -19,3 +19,9 @@ __pycache__/
 # IDE
 .vscode/
 .idea/
+
+# Next.js
+.next/
+.vercel/
+out/
+coverage/
