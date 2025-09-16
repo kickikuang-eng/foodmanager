@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { scrapeWithApify } from '@/lib/instagram-apify';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 function isValidInstagramUrl(url: string): boolean {
   return /^https?:\/\/(www\.)?instagram\.com\//.test(url);
@@ -28,6 +29,10 @@ export async function POST(request: NextRequest) {
     const message = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+export async function GET() {
+  return NextResponse.json({ ok: true });
 }
 
 
