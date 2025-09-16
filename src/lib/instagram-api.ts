@@ -300,3 +300,98 @@ export function extractInstagramMediaId(url: string): string | null {
 export function isValidInstagramUrl(url: string): boolean {
   return /^https:\/\/(www\.)?instagram\.com\/p\/[A-Za-z0-9_-]+\/?/.test(url);
 }
+
+/**
+ * Fallback: Scrape Instagram data via Apify actor
+ */
+export async function scrapeWithApify(
+  url: string
+): Promise<{ caption?: string; author?: string; thumbnailUrl?: string }> {
+  const apiToken = process.env.APIFY_API_TOKEN;
+  if (!apiToken) throw new Error('APIFY_API_TOKEN is not set');
+
+  const actorId = 'presetshubham~instagram-reel-downloader';
+  const payload = {
+    reelLinks: [url],
+    proxy: 'none',
+  };
+
+  const actorRunResponse = await fetch(
+    `https://api.apify.com/v2/acts/${actorId}/runs`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+
+  if (!actorRunResponse.ok) {
+    const errorText = await actorRunResponse.text();
+    throw new Error(
+      `Apify actor start failed: ${actorRunResponse.status} ${errorText}`
+    );
+  }
+
+  const runData = await actorRunResponse.json();
+  const runId = runData.data.id as string;
+
+  let attempts = 0;
+  const maxAttempts = 30; // ~30s timeout
+
+  while (attempts < maxAttempts) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    const statusResponse = await fetch(
+      `https://api.apify.com/v2/actor-runs/${runId}`,
+      {
+        headers: { Authorization: `Bearer ${apiToken}` },
+      }
+    );
+    if (!statusResponse.ok)
+      throw new Error(`Failed to check run status: ${statusResponse.status}`);
+
+    const statusData = await statusResponse.json();
+    const status = statusData.data.status as string;
+
+    if (status === 'SUCCEEDED') {
+      const resultsResponse = await fetch(
+        `https://api.apify.com/v2/datasets/${statusData.data.defaultDatasetId}/items`,
+        {
+          headers: { Authorization: `Bearer ${apiToken}` },
+        }
+      );
+      if (!resultsResponse.ok)
+        throw new Error(`Failed to get results: ${resultsResponse.status}`);
+
+      const results = await resultsResponse.json();
+      if (results && results.length > 0) {
+        const result = results[0] as Record<string, unknown>;
+        return {
+          caption:
+            (result.caption as string) ||
+            (result.description as string) ||
+            undefined,
+          author:
+            (result.owner_username as string) ||
+            (result.owner as string) ||
+            (result.username as string) ||
+            undefined,
+          thumbnailUrl:
+            (result.thumbnail as string) ||
+            (result.cover as string) ||
+            undefined,
+        };
+      }
+      return {};
+    } else if (status === 'FAILED') {
+      throw new Error('Apify run failed');
+    }
+
+    attempts++;
+  }
+
+  throw new Error('Apify run timeout');
+}
