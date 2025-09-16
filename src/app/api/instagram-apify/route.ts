@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { scrapeWithApify } from '@/lib/instagram-apify';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -23,6 +22,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Server is not configured: APIFY_API_TOKEN missing' }, { status: 500 });
     }
 
+    const { scrapeWithApify } = await import('@/lib/instagram-apify');
     const data = await scrapeWithApify(url);
     return NextResponse.json({ success: true, data });
   } catch (e: unknown) {
