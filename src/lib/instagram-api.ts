@@ -6,13 +6,19 @@ export async function scrapeWithApify(url: string): Promise<{ caption?: string; 
 
   const actorId = process.env.APIFY_ACTOR_ID_INSTAGRAM || "apify~instagram-scraper";
   const actorSlug = encodeURIComponent(actorId);
-  const payload = {
-    postUrls: [url],
-    includeComments: true,
-    includeLikes: true,
-    includeHashtags: true,
-    directUrls: [url]
-  } as Record<string, unknown>;
+  const isPresetReelActor = /presetshubham/i.test(actorId);
+  const payload = (isPresetReelActor
+    ? {
+        reelLinks: [url],
+        proxy: 'none'
+      }
+    : {
+        postUrls: [url],
+        includeComments: true,
+        includeLikes: true,
+        includeHashtags: true,
+        directUrls: [url]
+      }) as Record<string, unknown>;
 
   // Start the actor run
   const actorRunResponse = await fetch(
