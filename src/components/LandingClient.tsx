@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { detectPlatform, isValidUrl } from "@/lib/scraping";
 
 export default function LandingClient() {
   const [url, setUrl] = useState("");
@@ -8,15 +10,37 @@ export default function LandingClient() {
   const [loading, setLoading] = useState(false);
   const [guestRecipe, setGuestRecipe] = useState<any | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
+  }, []);
+
+  function getErrorMessage(value: unknown): string {
+    if (value instanceof Error) return value.message;
+    if (typeof value === "string") return value;
+    try { return JSON.stringify(value); } catch { return Object.prototype.toString.call(value); }
+  }
+
+  async function parseJsonSafe(res: Response) {
+    const text = await res.text();
+    if (!text) return {} as any;
+    try { return JSON.parse(text); } catch { return { error: text } as any; }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setMessage(null);
     setGuestRecipe(null);
 
-    const looksLikeUrl = /^(https?:\/\/)?([\w.-]+)\.[a-z]{2,}.*$/i.test(url.trim());
-    if (!looksLikeUrl) {
+    if (!isValidUrl(url)) {
       setMessage("Please paste a valid video URL.");
+      return;
+    }
+
+    const platform = detectPlatform(url);
+    if (!platform) {
+      setMessage("URL must be from YouTube, Instagram, or TikTok");
       return;
     }
 
@@ -25,25 +49,14 @@ export default function LandingClient() {
       const res = await fetch("/api/scrape", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url, platform, userId }),
       });
 
-      const contentType = res.headers.get('content-type') || ''
-      let data: any = null
-      let text: string | null = null
-      if (contentType.includes('application/json')) {
-        try { data = await res.json() } catch { data = null }
-      } else {
-        try { text = await res.text() } catch { text = null }
-      }
-      if (process.env.NODE_ENV !== 'production') {
-        // eslint-disable-next-line no-console
-        console.log('scrape response', { status: res.status, data, text })
-      }
+      const data = await parseJsonSafe(res);
 
       if (!res.ok) {
-        const msg = (data?.error as string) || text || 'Request failed'
-        setMessage(msg)
+        const msg = (data?.error as string) || "Request failed";
+        setMessage(msg);
         return;
       }
 
@@ -55,13 +68,13 @@ export default function LandingClient() {
       }
 
       if (data?.jobId || data?.recipeId) {
-        setMessage((data?.message || 'Job created.') + ' View it on your dashboard.')
+        setMessage((data?.message || 'Job created.') + ' View it on your dashboard.');
         return;
       }
 
       setMessage(data?.message || "Great! We'll generate your recipe next.");
     } catch (err) {
-      setMessage("Something went wrong. Try again.");
+      setMessage(`Something went wrong: ${getErrorMessage(err)}`);
     } finally {
       setLoading(false);
     }

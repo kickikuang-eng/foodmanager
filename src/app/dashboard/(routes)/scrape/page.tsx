@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { detectPlatform, isValidUrl } from '@/lib/platform'
+import { detectPlatform, isValidUrl } from '@/lib/scraping'
 
 interface Job {
   id: string
@@ -28,11 +28,22 @@ export default function ScrapePage() {
   }, [])
 
   async function parseJsonSafe(res: Response) {
+    const text = await res.text()
+    if (!text) return {}
     try {
-      return await res.json()
+      return JSON.parse(text)
     } catch {
-      const text = await res.text()
       return { error: text }
+    }
+  }
+
+  function getErrorMessage(value: unknown): string {
+    if (value instanceof Error) return value.message
+    if (typeof value === 'string') return value
+    try {
+      return JSON.stringify(value)
+    } catch {
+      return Object.prototype.toString.call(value)
     }
   }
 
@@ -43,6 +54,8 @@ export default function ScrapePage() {
       const data = await parseJsonSafe(res)
       if (res.ok) setJobs((data.jobs as Job[]) || [])
       else setError(typeof data.error === 'string' ? data.error : 'Failed to load jobs')
+    } catch (err) {
+      setError(`Failed to load jobs: ${getErrorMessage(err)}`)
     } finally {
       setLoading(false)
     }
@@ -86,42 +99,49 @@ export default function ScrapePage() {
       return
     }
     setStatus('Creating job...')
-    const res = await fetch('/api/scrape', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, platform, userId }),
-    })
-    const data = await parseJsonSafe(res)
-    if (!res.ok) {
-      setError(typeof data.error === 'string' ? data.error : 'Failed to create job')
+    try {
+      const res = await fetch('/api/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, platform, userId }),
+      })
+      const data = await parseJsonSafe(res)
+      if (!res.ok) {
+        setError(typeof data.error === 'string' ? data.error : 'Failed to create job')
+        setStatus(null)
+        return
+      }
+      setStatus(`Job created: ${data.jobId}`)
+      setUrl('')
+      await loadJobs(userId)
+      setAutoRefresh(true) // Start auto-refresh for the new job
+    } catch (err) {
+      setError(`Failed to create job: ${getErrorMessage(err)}`)
       setStatus(null)
-      return
     }
-    setStatus(`Job created: ${data.jobId}`)
-    setUrl('')
-    await loadJobs(userId)
-    setAutoRefresh(true) // Start auto-refresh for the new job
   }
 
   async function checkStatus(jobId: string) {
     setError(null)
-    const res = await fetch(`/api/scrape/status?jobId=${encodeURIComponent(jobId)}`)
-    const data = await parseJsonSafe(res)
-    if (!res.ok) {
-      setError(typeof data.error === 'string' ? data.error : 'Failed to check status')
-      return
+    try {
+      const res = await fetch(`/api/scrape/status?jobId=${encodeURIComponent(jobId)}`)
+      const data = await parseJsonSafe(res)
+      if (!res.ok) {
+        setError(typeof data.error === 'string' ? data.error : 'Failed to check status')
+        return
+      }
+      // Show success message if job completed
+      if (data.status === 'completed') {
+        setStatus(`Recipe successfully scraped and saved! ${data.message || ''}`)
+      } else if (data.status === 'failed') {
+        setError(data.message || 'Scraping job failed')
+      } else {
+        setStatus(data.message || 'Job is still processing...')
+      }
+      if (userId) await loadJobs(userId)
+    } catch (err) {
+      setError(`Failed to check status: ${getErrorMessage(err)}`)
     }
-    
-    // Show success message if job completed
-    if (data.status === 'completed') {
-      setStatus(`Recipe successfully scraped and saved! ${data.message || ''}`)
-    } else if (data.status === 'failed') {
-      setError(data.message || 'Scraping job failed')
-    } else {
-      setStatus(data.message || 'Job is still processing...')
-    }
-    
-    if (userId) await loadJobs(userId)
   }
 
   return (

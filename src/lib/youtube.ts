@@ -1,4 +1,4 @@
-import { detectPlatform } from './platform'
+// import { detectPlatform } from './scraping'
 
 export interface VideoInfo {
   platform: 'youtube'

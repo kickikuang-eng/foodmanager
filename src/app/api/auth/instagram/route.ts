@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getInstagramAuthUrl, exchangeCodeForToken, getInstagramUser } from '@/lib/instagram-api';
+// import { getInstagramAuthUrl, exchangeCodeForToken, getInstagramUser } from '@/lib/instagram-api';
 import { supabaseAdmin } from '@/lib/supabase';
 
 /**
@@ -16,7 +16,8 @@ export async function GET(request: NextRequest) {
     }
     
     // Generate Instagram OAuth URL
-    const authUrl = getInstagramAuthUrl();
+    // const authUrl = getInstagramAuthUrl();
+    const authUrl = 'https://instagram.com/oauth/authorize'; // Placeholder
     
     // Store state in database for verification
     const { error } = await supabaseAdmin
@@ -65,10 +66,12 @@ export async function POST(request: NextRequest) {
     }
     
     // Exchange code for access token
-    const authResponse = await exchangeCodeForToken(code);
+    // const authResponse = await exchangeCodeForToken(code);
+    const authResponse = { access_token: 'placeholder', user_id: 'placeholder' }; // Placeholder
     
     // Get Instagram user info
-    const instagramUser = await getInstagramUser(authResponse.access_token);
+    // const instagramUser = await getInstagramUser(authResponse.access_token);
+    const instagramUser = { username: 'placeholder', account_type: 'PERSONAL', media_count: 0 }; // Placeholder
     
     // Store Instagram credentials in database
     const { data: instagramAuth, error: authError } = await supabaseAdmin

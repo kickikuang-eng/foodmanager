@@ -64,7 +64,7 @@ export async function GET(request: Request) {
           })
         }
 
-        const rawData = items[0] // Get the first (and should be only) result
+        const rawData = items[0] as any // Get the first (and should be only) result
         
         // Extract recipe data from various possible fields
         const textContent = rawData.caption || rawData.description || rawData.text || rawData.content || ''
@@ -77,7 +77,7 @@ export async function GET(request: Request) {
         
         if (hasTextContent) {
           // Extract title (first line or look for recipe keywords)
-          const lines = textContent.split('\n').map(line => line.trim()).filter(line => line)
+          const lines = textContent.split('\n').map((line: string) => line.trim()).filter((line: string) => line)
           extractedTitle = lines[0] || `Recipe from ${job.platform}`
           
           // Extract ingredients and instructions from text

@@ -26,7 +26,7 @@ export default function AuthAwareLanding({ children }: AuthAwareLandingProps) {
 
         if (data.session) {
           setIsAuthenticated(true)
-          setUserEmail(data.session.user.email)
+          setUserEmail(data.session.user.email || null)
         } else {
           setIsAuthenticated(false)
         }
@@ -42,7 +42,7 @@ export default function AuthAwareLanding({ children }: AuthAwareLandingProps) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
         setIsAuthenticated(true)
-        setUserEmail(session.user.email)
+        setUserEmail(session.user.email || null)
       } else {
         setIsAuthenticated(false)
         setUserEmail(null)

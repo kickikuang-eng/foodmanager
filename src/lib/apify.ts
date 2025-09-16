@@ -151,8 +151,9 @@ export async function startApifyActor(params: StartActorParams): Promise<StartAc
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
+      const details = typeof errorData?.error?.message === 'string' ? ` - ${errorData.error.message}` : ''
       throw new ApifyError(
-        `Failed to start Apify actor: ${response.statusText}`,
+        `Failed to start Apify actor: ${response.statusText} (actor=${actorId}, status=${response.status})${details}`,
         response.status,
         errorData
       )
